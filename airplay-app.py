@@ -10,6 +10,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import threading
 import urllib.parse
 from pathlib import Path
 
@@ -73,7 +74,18 @@ class Api:
   # ---------- window ----------
 
   def win_close(self):
-    self.stop()
+    # return from the JS bridge immediately: do teardown (which makes a
+    # network call to the receiver) and destroy() on a worker thread, so a
+    # slow/absent receiver can't freeze the window, and destroy() isn't
+    # called from inside a bridge handler (a pywebview deadlock on macOS).
+    self.playing = False  # stop the JS poll loop from issuing more requests
+    threading.Thread(target=self._teardown_and_close, daemon=True).start()
+
+  def _teardown_and_close(self):
+    try:
+      self.stop()
+    except Exception:
+      pass
     save_config(self.cfg)
     self.window.destroy()
 
@@ -233,7 +245,8 @@ class Api:
     if self.device:
       _, ip, port = self.device
       try:
-        core.airplay_request(ip, port, 'POST', '/stop')
+        # short timeout: /stop is best-effort, never worth stalling on
+        core.airplay_request(ip, port, 'POST', '/stop', timeout=2)
       except OSError:
         pass
 

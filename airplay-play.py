@@ -369,8 +369,8 @@ def _digest_header(method, uri, challenge, password, username='AirPlay', cnonce=
   return auth
 
 
-def airplay_request(ip, port, method, path, body=None):
-  conn = http.client.HTTPConnection(ip, port, timeout=10)
+def airplay_request(ip, port, method, path, body=None, timeout=10):
+  conn = http.client.HTTPConnection(ip, port, timeout=timeout)
   headers = {'User-Agent': 'MediaControl/1.0',
              'X-Apple-Session-ID': airplay_request.session}
   if body is not None:

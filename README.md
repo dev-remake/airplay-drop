@@ -13,6 +13,22 @@
 
 AirPlay Drop sends local video files (MKV, MP4, AVI and friends) from your Mac to any AirPlay video receiver: Apple TV style boxes, smart TVs, or Android devices running receiver apps like AirPin or AirScreen. No screen mirroring, no lag: the receiver streams the file directly and plays it with its own hardware.
 
+<p align="center">
+  <img src="screenshots/app.png" width="820" alt="AirPlay Drop main window">
+</p>
+
+## Download
+
+Grab `AirPlay-Drop-macOS-arm64.zip` from the [latest release](https://github.com/djaysan/airplay-drop/releases/latest), unzip, and drag **AirPlay Drop.app** into Applications. Done - no build, nothing else to install.
+
+First launch: right-click the app and choose **Open** (it is not notarized with a paid Apple certificate, so macOS asks once). If macOS claims the app is damaged, clear the quarantine flag instead:
+
+```sh
+xattr -cr "/Applications/AirPlay Drop.app"
+```
+
+Apple Silicon (M1 and later) only. On an Intel Mac, install from source below.
+
 ## Features
 
 - **Drag and drop** any video onto the window or the Dock icon
@@ -33,7 +49,7 @@ AirPlay Drop sends local video files (MKV, MP4, AVI and friends) from your Mac t
 
 The interface is a native WebKit window (dark glass, macOS style) driven by a small Python backend. No Electron, no browser tab.
 
-## Install
+## Install from source
 
 ```sh
 git clone https://github.com/djaysan/airplay-drop.git

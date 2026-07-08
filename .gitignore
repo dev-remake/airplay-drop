@@ -5,3 +5,6 @@ AirPlay Drop.app/
 icon/AppIcon.iconset/
 ref UI/
 droplet.applescript
+build/
+dist/
+*.spec

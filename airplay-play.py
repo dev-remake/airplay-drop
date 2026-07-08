@@ -104,6 +104,11 @@ def pick_device(args):
 # ---------- optional ffmpeg preprocessing ----------
 
 def ffmpeg_path():
+  # frozen .app bundle: ffmpeg/ffprobe ship inside the app
+  if getattr(sys, 'frozen', False):
+    bundled = Path(getattr(sys, '_MEIPASS', '')) / 'bin' / 'ffmpeg'
+    if bundled.exists():
+      return str(bundled)
   # the static-ffmpeg pip package ships a full build WITH libass (subtitle
   # rendering) — Homebrew's ffmpeg doesn't, so prefer static. Downloads its
   # binaries once on first use, then it's a cached path lookup.

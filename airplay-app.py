@@ -15,9 +15,11 @@ from pathlib import Path
 
 import webview
 
+# where our files live: next to this script, or inside the frozen .app bundle
+BASE = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
+
 # import the engine despite the hyphen in its filename
-_spec = importlib.util.spec_from_file_location(
-  'core', Path(__file__).with_name('airplay-play.py'))
+_spec = importlib.util.spec_from_file_location('core', BASE / 'airplay-play.py')
 core = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(core)
 
@@ -291,7 +293,7 @@ class Api:
 def main():
   api = Api()
   window = webview.create_window(
-    'AirPlay Drop', str(Path(__file__).with_name('ui.html')),
+    'AirPlay Drop', str(BASE / 'ui.html'),
     js_api=api, width=1020, height=660, min_size=(860, 560),
     frameless=True, easy_drag=False, background_color='#131315')
   api.window = window

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+AirPlay Drop.app/
+icon/AppIcon.iconset/
+ref UI/
+droplet.applescript

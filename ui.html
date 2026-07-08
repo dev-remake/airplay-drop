@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AirPlay Drop</title>
+<style>
+  :root {
+    --bg: #131315;
+    --on: #e4e2e4;
+    --on-dim: rgba(228,226,228,.62);
+    --on-faint: rgba(228,226,228,.38);
+    --glass-border: rgba(255,255,255,.14);
+    --primary: #aac7ff;
+    --primary-strong: #3e90ff;
+    --on-primary: #0a2c5c;
+    --secondary: #e9b3ff;
+    --tertiary: #42e355;
+    --error: #ffb4ab;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; display: flex; overflow: hidden;
+    color: var(--on); user-select: none; cursor: default;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(48% 60% at 85% 10%, rgba(62,144,255,.30), transparent 66%),
+      radial-gradient(42% 55% at 8% 90%, rgba(125,1,177,.28), transparent 65%),
+      radial-gradient(36% 46% at 70% 95%, rgba(0,168,47,.10), transparent 70%),
+      linear-gradient(160deg, #14141c, #0d0d11 55%, #100e16);
+  }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    width: 248px; flex: none; display: flex; flex-direction: column;
+    padding: 14px 12px 16px;
+    background: rgba(255,255,255,.045);
+    border-right: 1px solid rgba(255,255,255,.07);
+  }
+  .lights { display: flex; gap: 8px; padding: 4px 6px 14px; }
+  .lights button {
+    width: 12px; height: 12px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  }
+  .lights .r { background: #ff5f57; } .lights .y { background: #febc2e; }
+  .lights .g { background: #28c840; opacity: .45; cursor: default; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 2px 6px 16px; }
+  .brand img { width: 30px; height: 30px; }
+  .brand b { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+
+  .side-label {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    color: var(--on-faint); padding: 8px 6px; text-transform: uppercase;
+  }
+  #recent { overflow-y: auto; flex: 1; }
+  .media-item {
+    display: flex; gap: 10px; padding: 8px; border-radius: 8px;
+    align-items: center; position: relative; cursor: pointer;
+  }
+  .media-item:hover, .media-item.active { background: rgba(255,255,255,.09); }
+  .media-item .thumb {
+    width: 74px; height: 44px; border-radius: 6px; flex: none;
+    background: linear-gradient(140deg, #2b3350, #1c1f2e) center/cover;
+    display: grid; place-items: center; font-size: 17px;
+  }
+  .mi-meta { min-width: 0; flex: 1; }
+  .mi-name { font-size: 12px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mi-sub { font-size: 11px; color: var(--on-faint); margin-top: 2px; }
+  .mi-bar { height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); margin-top: 6px; }
+  .mi-bar i { display: block; height: 100%; border-radius: 2px; background: var(--primary-strong); }
+  .mi-x {
+    position: absolute; top: 6px; right: 8px; display: none;
+    background: rgba(0,0,0,.5); border: 0; color: var(--on-dim); cursor: pointer;
+    width: 18px; height: 18px; border-radius: 50%; font-size: 10px; line-height: 1;
+  }
+  .media-item:hover .mi-x { display: block; }
+
+  .side-bottom {
+    margin-top: auto; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--on-dim); padding: 10px 6px 0;
+    border-top: 1px solid rgba(255,255,255,.07);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--on-faint); }
+  .dot.on { background: var(--tertiary); }
+
+  /* ---------- main ---------- */
+  .content { flex: 1; display: flex; flex-direction: column; padding: 14px 24px 20px; min-width: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 550; color: var(--on-dim);
+    background: rgba(255,255,255,.07); border: 1px solid var(--glass-border);
+    padding: 6px 12px; border-radius: 999px;
+  }
+  .device-wrap { position: relative; }
+  .device-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--on);
+    background: rgba(255,255,255,.09); border: 1px solid var(--glass-border);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  }
+  .device-pill:hover { background: rgba(255,255,255,.13); }
+  .device-pill svg { color: var(--primary); }
+  .device-menu {
+    position: absolute; right: 0; top: 42px; z-index: 30; min-width: 230px;
+    background: rgba(34,34,40,.95); backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border); border-radius: 12px; padding: 6px;
+    box-shadow: 0 18px 40px rgba(0,0,0,.5); display: none;
+  }
+  .device-menu.open { display: block; }
+  .device-menu button {
+    display: block; width: 100%; text-align: left; font: inherit; font-size: 13px;
+    color: var(--on); background: none; border: 0; border-radius: 7px;
+    padding: 8px 10px; cursor: pointer;
+  }
+  .device-menu button:hover { background: rgba(255,255,255,.1); }
+  .device-menu button.sel { color: var(--primary); font-weight: 600; }
+  .device-menu .rescan { color: var(--on-dim); border-top: 1px solid rgba(255,255,255,.08); border-radius: 0 0 7px 7px; margin-top: 4px; }
+
+  .dropzone {
+    flex: 1; margin-top: 14px; border-radius: 24px;
+    border: 1.5px dashed rgba(255,255,255,.22);
+    background: rgba(255,255,255,.05);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 4px; padding: 24px; min-height: 180px;
+    transition: border-color .2s, background .2s;
+  }
+  .dropzone.over { border-color: var(--primary-strong); background: rgba(62,144,255,.09); }
+  .dropzone svg { color: var(--on-faint); margin-bottom: 6px; }
+  .dropzone h2 {
+    font-size: 22px; font-weight: 650; letter-spacing: -.015em; margin: 0;
+    max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dropzone p { font-size: 13.5px; color: var(--on-dim); margin: 2px 0 14px; max-width: 46ch; line-height: 1.5; }
+  .btn-primary {
+    font: inherit; font-size: 13.5px; font-weight: 600;
+    color: var(--on-primary); background: var(--primary);
+    border: 0; padding: 10px 24px; border-radius: 999px; cursor: pointer;
+    box-shadow: 0 0 24px rgba(170,199,255,.3);
+  }
+  .btn-primary:hover { background: #c0d5ff; }
+  .btn-primary:disabled { opacity: .45; cursor: default; box-shadow: none; }
+  button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+  .card {
+    border-radius: 14px; border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,.055); padding: 12px 14px;
+  }
+  .card .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .card .k { font-size: 11px; font-weight: 600; letter-spacing: .07em; color: var(--on-faint); text-transform: uppercase; }
+  .card .v { font-size: 13.5px; font-weight: 550; margin-top: 4px; min-height: 20px; }
+  .card .v small { color: var(--on-faint); font-weight: 400; }
+  .c-subs svg { color: var(--secondary); } .c-audio svg { color: var(--tertiary); } .c-stream svg { color: var(--primary); }
+  .toggle {
+    width: 34px; height: 20px; border-radius: 999px; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.16); position: relative; transition: background .15s; flex: none;
+  }
+  .toggle i {
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; transition: left .15s;
+  }
+  .toggle.on { background: var(--primary-strong); }
+  .toggle.on i { left: 16px; }
+  .card select {
+    width: 100%; font: inherit; font-size: 12.5px; color: var(--on);
+    background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 7px; padding: 5px 8px; margin-top: 6px;
+  }
+  .card select:disabled { opacity: .4; }
+
+  /* ---------- player bar ---------- */
+  .playerbar {
+    margin-top: 16px; display: none; align-items: center; gap: 14px;
+    background: rgba(30,30,34,.85); border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px); border-radius: 999px; padding: 8px 16px 8px 8px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.45);
+  }
+  .playerbar.show { display: flex; }
+  .playerbar .pthumb {
+    width: 50px; height: 50px; border-radius: 50%; flex: none;
+    background: linear-gradient(140deg, #2b3350, #1c1f2e) center/cover;
+  }
+  .transport { display: flex; align-items: center; gap: 2px; flex: none; }
+  .tbtn {
+    background: none; border: 0; color: var(--on); cursor: pointer;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 10.5px; font-weight: 600; font-family: inherit;
+  }
+  .tbtn:hover { background: rgba(255,255,255,.1); }
+  .tbtn.big { width: 42px; height: 42px; background: #fff; color: #111; }
+  .tbtn.cc { color: var(--on-faint); font-weight: 700; font-size: 11px; letter-spacing: .04em; }
+  .tbtn.cc.on { color: var(--secondary); }
+  .scrub { flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .time { font-size: 12px; color: var(--on-dim); font-variant-numeric: tabular-nums; flex: none; }
+  .track { flex: 1; height: 14px; display: flex; align-items: center; cursor: pointer; }
+  .track .rail { width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); position: relative; }
+  .track .fill { position: absolute; left: 0; top: 0; height: 100%; width: 0%; border-radius: 2px; background: var(--primary); }
+  .track .knob {
+    position: absolute; top: 50%; left: 0%; width: 12px; height: 12px;
+    transform: translate(-50%,-50%); border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.5);
+  }
+
+  .statusline { font-size: 12px; color: var(--on-faint); padding: 10px 4px 0; min-height: 26px; }
+
+  /* ---------- modal ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50;
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    width: 380px; max-width: 90vw; border-radius: 16px; padding: 20px;
+    background: rgba(38,38,44,.97); border: 1px solid var(--glass-border);
+    box-shadow: 0 30px 70px rgba(0,0,0,.6);
+  }
+  .modal h3 { margin: 0 0 6px; font-size: 16px; font-weight: 650; }
+  .modal p { margin: 0 0 14px; font-size: 13px; color: var(--on-dim); line-height: 1.5; }
+  .modal pre {
+    background: rgba(0,0,0,.35); border-radius: 8px; padding: 10px; font-size: 11px;
+    max-height: 180px; overflow: auto; white-space: pre-wrap; user-select: text; color: var(--on-dim);
+  }
+  .modal input {
+    width: 100%; font: inherit; font-size: 14px; color: var(--on);
+    background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px; padding: 9px 10px; margin-bottom: 14px;
+  }
+  .modal .row { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn-ghost {
+    font: inherit; font-size: 13px; font-weight: 550; color: var(--on);
+    background: rgba(255,255,255,.09); border: 1px solid var(--glass-border);
+    padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,.14); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="lights pywebview-drag-region">
+    <button class="r" onclick="api().win_close()" title="Close" aria-label="Close"></button>
+    <button class="y" onclick="api().win_minimize()" title="Minimize" aria-label="Minimize"></button>
+    <button class="g" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <div class="brand pywebview-drag-region"><img src="icon/icon_1024.png" alt=""><b>AirPlay Drop</b></div>
+  <div class="side-label">Recent media</div>
+  <div id="recent"></div>
+  <div class="side-bottom"><span class="dot" id="devdot"></span><span id="devstatus">No device</span></div>
+</aside>
+
+<main class="content">
+  <div class="topbar pywebview-drag-region">
+    <span class="chip">
+      <svg width="11" height="13" viewBox="0 0 12 14" fill="currentColor" aria-hidden="true"><polygon points="7,0 0,8 5,8 4,14 12,5.5 6.5,5.5"/></svg>
+      Local Network
+    </span>
+    <div class="device-wrap">
+      <button class="device-pill" id="devicePill" onclick="toggleMenu()">
+        <svg width="17" height="15" viewBox="0 0 17 15" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="1" y="1" width="15" height="10" rx="2"/>
+          <polygon points="8.5,7 4.5,13.5 12.5,13.5" fill="currentColor" stroke="none"/>
+        </svg>
+        <span id="deviceLabel">Scanning...</span>
+        <svg width="9" height="6" viewBox="0 0 9 6" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polyline points="1,1 4.5,4.5 8,1"/></svg>
+      </button>
+      <div class="device-menu" id="deviceMenu"></div>
+    </div>
+  </div>
+
+  <div class="dropzone" id="dropzone" onclick="browse(event)">
+    <svg width="46" height="46" viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+      <rect x="10" y="6" width="32" height="40" rx="5"/>
+      <line x1="26" y1="36" x2="26" y2="20"/>
+      <polyline points="19,26 26,19 33,26"/>
+    </svg>
+    <h2 id="dzTitle">Drop a video to play</h2>
+    <p id="dzSub">Drag any MKV, MP4 or AVI from Finder. It streams straight to your receiver, subtitles included.</p>
+    <button class="btn-primary" id="mainBtn" onclick="mainAction(event)">Select Video</button>
+  </div>
+
+  <div class="cards">
+    <div class="card c-subs">
+      <div class="head">
+        <svg width="24" height="18" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <rect x="1" y="1" width="22" height="16" rx="3"/>
+          <line x1="5" y1="11.5" x2="10" y2="11.5"/><line x1="13" y1="11.5" x2="19" y2="11.5"/>
+          <line x1="5" y1="7" x2="8" y2="7"/><line x1="11" y1="7" x2="19" y2="7"/>
+        </svg>
+        <button class="toggle" id="subsToggle" onclick="toggleSubs()" aria-label="Subtitles on or off"><i></i></button>
+      </div>
+      <div class="k">Subtitles</div>
+      <select id="trackSel" disabled aria-label="Subtitle track"><option>No file loaded</option></select>
+    </div>
+    <div class="card c-audio">
+      <div class="head">
+        <svg width="22" height="18" viewBox="0 0 22 18" fill="currentColor" aria-hidden="true">
+          <rect x="1" y="6" width="3.4" height="6" rx="1.7"/><rect x="7" y="2" width="3.4" height="14" rx="1.7"/>
+          <rect x="13" y="4.5" width="3.4" height="9" rx="1.7"/><rect x="18.6" y="7" width="3.4" height="4" rx="1.7"/>
+        </svg>
+        <button class="toggle" id="audioToggle" onclick="toggleAudio()" aria-label="Fix audio on or off"><i></i></button>
+      </div>
+      <div class="k">Fix audio</div>
+      <div class="v" id="audioV">Original <small>· turn on if a file plays silent</small></div>
+    </div>
+    <div class="card c-stream">
+      <div class="head">
+        <svg width="14" height="17" viewBox="0 0 12 14" fill="currentColor" aria-hidden="true"><polygon points="7,0 0,8 5,8 4,14 12,5.5 6.5,5.5"/></svg>
+      </div>
+      <div class="k">Stream</div>
+      <div class="v" id="streamV">Direct <small>· no transcoding</small></div>
+    </div>
+  </div>
+
+  <div class="playerbar" id="playerbar">
+    <div class="pthumb" id="pthumb"></div>
+    <div class="transport">
+      <button class="tbtn" onclick="api().skip(-15)" title="Back 15 seconds">−15</button>
+      <button class="tbtn big" id="pauseBtn" onclick="pauseToggle()" title="Pause" aria-label="Pause or resume">
+        <svg id="pauseIcon" width="13" height="14" viewBox="0 0 13 14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="3.6" height="12" rx="1"/><rect x="8.4" y="1" width="3.6" height="12" rx="1"/></svg>
+        <svg id="playIcon" width="13" height="14" viewBox="0 0 13 14" fill="currentColor" aria-hidden="true" style="display:none"><polygon points="2,1 12,7 2,13"/></svg>
+      </button>
+      <button class="tbtn" onclick="api().skip(15)" title="Forward 15 seconds">+15</button>
+    </div>
+    <div class="scrub">
+      <span class="time" id="tPos">0:00:00</span>
+      <div class="track" id="track"><div class="rail"><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div></div>
+      <span class="time" id="tTot">0:00:00</span>
+    </div>
+    <button class="tbtn cc" id="ccBadge" title="Subtitles">CC</button>
+    <button class="tbtn" onclick="stop()" title="Stop" aria-label="Stop">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2"/></svg>
+    </button>
+  </div>
+
+  <div class="statusline" id="statusline"></div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const api = () => window.pywebview.api;
+
+let fileInfo = null;       // {path, name, total, tracks, track, resume, thumb}
+let subsOn = false, audioOn = false;
+let playing = false, paused = false;
+let lastResume = 0;
+
+const fmt = s => {
+  s = Math.max(0, Math.floor(s));
+  return `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+};
+const setStatus = t => $('statusline').textContent = t || '';
+
+/* ---------- boot ---------- */
+window.addEventListener('pywebviewready', async () => {
+  const s = await api().boot();
+  renderRecent(s.recent);
+  if (s.file) applyFile(s.file);
+  scan();
+  setInterval(poll, 2000);
+});
+
+/* ---------- devices ---------- */
+let devices = [], deviceSel = -1;
+async function scan() {
+  $('deviceLabel').textContent = 'Scanning...';
+  const r = await api().scan();
+  devices = r.devices; deviceSel = r.selected;
+  renderDevices();
+}
+function renderDevices() {
+  const label = deviceSel >= 0 ? devices[deviceSel].name : 'No device found';
+  $('deviceLabel').textContent = label;
+  $('devstatus').textContent = deviceSel >= 0 ? label : 'No device';
+  $('devdot').className = 'dot' + (deviceSel >= 0 ? ' on' : '');
+  const m = $('deviceMenu');
+  m.innerHTML = '';
+  devices.forEach((d, i) => {
+    const b = document.createElement('button');
+    b.textContent = `${d.name}  ·  ${d.ip}`;
+    b.className = i === deviceSel ? 'sel' : '';
+    b.onclick = async e => { e.stopPropagation(); deviceSel = i; await api().select_device(i); renderDevices(); m.classList.remove('open'); };
+    m.appendChild(b);
+  });
+  const r = document.createElement('button');
+  r.textContent = '↻ Rescan';
+  r.className = 'rescan';
+  r.onclick = e => { e.stopPropagation(); $('deviceMenu').classList.remove('open'); scan(); };
+  m.appendChild(r);
+}
+function toggleMenu() { $('deviceMenu').classList.toggle('open'); }
+document.addEventListener('click', e => {
+  if (!e.target.closest('.device-wrap')) $('deviceMenu').classList.remove('open');
+});
+
+/* ---------- file selection ---------- */
+const dz = $('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', async e => {
+  e.preventDefault(); dz.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  const p = f && (f.pywebviewFullPath || f.path);
+  if (p) applyFile(await api().set_file(p));
+  else setStatus('Could not read the dropped path. Use Select Video instead.');
+});
+async function browse(e) {
+  if (e && e.target.closest('button')) return; // main button handles itself
+  const info = await api().browse();
+  if (info) applyFile(info);
+}
+async function mainAction(e) {
+  e.stopPropagation();
+  if (!fileInfo) { const info = await api().browse(); if (info) applyFile(info); return; }
+  startPlay();
+}
+function applyFile(info) {
+  if (!info || info.error) { setStatus(info ? info.error : ''); return; }
+  fileInfo = info;
+  $('dzTitle').textContent = info.name;
+  $('dzSub').textContent = info.total ? `${fmt(info.total)} · drop another file to switch` : 'drop another file to switch';
+  $('mainBtn').textContent = '▶ Play';
+  const sel = $('trackSel');
+  sel.innerHTML = '';
+  if (info.tracks.length) {
+    info.tracks.forEach(t => sel.appendChild(new Option(t)));
+    sel.selectedIndex = Math.min(info.track, info.tracks.length - 1);
+    sel.disabled = false;
+  } else {
+    sel.appendChild(new Option('No embedded subtitles'));
+    sel.disabled = true;
+  }
+  refreshRecent();
+}
+
+/* ---------- toggles ---------- */
+function toggleSubs() {
+  subsOn = !subsOn;
+  $('subsToggle').classList.toggle('on', subsOn);
+  $('streamV').innerHTML = subsOn
+    ? 'Live transcode <small>· subtitles burned in</small>'
+    : 'Direct <small>· no transcoding</small>';
+}
+function toggleAudio() {
+  audioOn = !audioOn;
+  $('audioToggle').classList.toggle('on', audioOn);
+  $('audioV').innerHTML = audioOn
+    ? 'AAC repack <small>· one-time, cached</small>'
+    : 'Original <small>· turn on if a file plays silent</small>';
+}
+
+/* ---------- playback ---------- */
+function startPlay() {
+  if (!fileInfo) return;
+  const r = fileInfo.resume || 0;
+  if (r > 60 && fileInfo.total && r < fileInfo.total * 0.95) {
+    modal(`<h3>Resume?</h3><p>${fileInfo.name}<br>stopped at ${fmt(r)} last time.</p>
+      <div class="row">
+        <button class="btn-ghost" onclick="closeModal(); doPlay(0)">From start</button>
+        <button class="btn-primary" onclick="closeModal(); doPlay(${r})">Resume ${fmt(r)}</button>
+      </div>`);
+  } else doPlay(0);
+}
+async function doPlay(resumeSec) {
+  lastResume = resumeSec;
+  $('mainBtn').disabled = true;
+  setStatus(subsOn ? 'Starting subtitled stream...' : 'Starting...');
+  const r = await api().play({
+    subs: subsOn, track: Math.max($('trackSel').selectedIndex, 0),
+    fix_audio: audioOn, resume: resumeSec,
+  });
+  $('mainBtn').disabled = false;
+  if (r.need_password) { askPassword(r.rejected); return; }
+  if (r.error) {
+    setStatus('Play failed.');
+    modal(`<h3>Play failed</h3><pre id="errpre"></pre>
+      <div class="row">
+        <button class="btn-ghost" onclick="copyErr(this)">Copy error</button>
+        <button class="btn-primary" onclick="closeModal()">Close</button>
+      </div>`);
+    $('errpre').textContent = r.detail;
+    return;
+  }
+  playing = true; paused = false;
+  $('playerbar').classList.add('show');
+  $('ccBadge').classList.toggle('on', subsOn);
+  if (fileInfo.thumb) $('pthumb').style.backgroundImage = `url(${fileInfo.thumb})`;
+  setPauseIcon();
+  setStatus(`Playing on ${devices[deviceSel] ? devices[deviceSel].name : ''}`);
+}
+function askPassword(rejected) {
+  modal(`<h3>AirPlay password</h3>
+    <p>${rejected ? 'That password was rejected. Check it on the receiver and try again.'
+                  : 'This receiver asks for a password (set in its settings).'}</p>
+    <input type="password" id="pwInput" autofocus>
+    <div class="row">
+      <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitPassword()">Connect</button>
+    </div>`);
+  $('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitPassword(); });
+}
+async function submitPassword() {
+  const v = $('pwInput').value;
+  closeModal();
+  if (!v) return;
+  await api().set_password(v);
+  doPlay(lastResume);
+}
+async function pauseToggle() {
+  const r = await api().pause_toggle();
+  paused = r.paused;
+  setPauseIcon();
+}
+function setPauseIcon() {
+  $('pauseIcon').style.display = paused ? 'none' : 'block';
+  $('playIcon').style.display = paused ? 'block' : 'none';
+}
+async function stop() {
+  playing = false; paused = false;
+  $('playerbar').classList.remove('show');
+  setStatus('Stopped.');
+  await api().stop();
+  refreshRecent();
+}
+$('track').addEventListener('click', async e => {
+  if (!playing) return;
+  const rect = $('track').getBoundingClientRect();
+  const frac = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+  await api().seek_frac(frac);
+});
+function copyErr(btn) {
+  navigator.clipboard.writeText($('errpre').textContent);
+  btn.textContent = 'Copied ✓';
+}
+
+/* ---------- status poll ---------- */
+async function poll() {
+  if (!playing) return;
+  const st = await api().status();
+  if (!st.playing) return;
+  const total = st.total || st.dur + st.offset;
+  const pos = st.pos + st.offset;
+  $('tPos').textContent = fmt(pos);
+  $('tTot').textContent = fmt(total);
+  const pct = total ? Math.min(pos / total * 100, 100) : 0;
+  $('fill').style.width = pct + '%';
+  $('knob').style.left = pct + '%';
+  paused = st.paused; setPauseIcon();
+  updateRecentBar(fileInfo && fileInfo.path, pos, total);
+}
+
+/* ---------- recent ---------- */
+let recentData = [];
+function renderRecent(list) {
+  recentData = list || [];
+  const box = $('recent');
+  box.innerHTML = '';
+  recentData.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'media-item' + (fileInfo && fileInfo.path === it.path ? ' active' : '');
+    div.dataset.path = it.path;
+    const pct = it.dur ? Math.min(it.pos / it.dur * 100, 100) : 0;
+    div.innerHTML = `
+      <div class="thumb">${it.thumb ? '' : '🎬'}</div>
+      <div class="mi-meta">
+        <div class="mi-name"></div>
+        <div class="mi-sub"></div>
+        <div class="mi-bar"><i style="width:${pct}%"></i></div>
+      </div>
+      <button class="mi-x" title="Remove from list">✕</button>`;
+    if (it.thumb) div.querySelector('.thumb').style.backgroundImage = `url(${it.thumb})`;
+    div.querySelector('.mi-name').textContent = it.name;
+    div.querySelector('.mi-sub').textContent = it.pos > 0 ? `left off at ${fmt(it.pos)}` : 'not started';
+    div.onclick = async () => applyFile(await api().set_file(it.path));
+    div.querySelector('.mi-x').onclick = async e => {
+      e.stopPropagation();
+      renderRecent(await api().remove_recent(it.path));
+    };
+    box.appendChild(div);
+  });
+}
+async function refreshRecent() { renderRecent(await api().recent()); }
+function updateRecentBar(path, pos, total) {
+  if (!path) return;
+  const row = [...document.querySelectorAll('.media-item')].find(d => d.dataset.path === path);
+  if (row && total) {
+    row.querySelector('.mi-bar i').style.width = Math.min(pos / total * 100, 100) + '%';
+    row.querySelector('.mi-sub').textContent = `left off at ${fmt(pos)}`;
+  }
+}
+
+/* ---------- modal ---------- */
+function modal(html) {
+  $('modal').innerHTML = html;
+  $('overlay').classList.add('open');
+  const inp = $('modal').querySelector('input');
+  if (inp) inp.focus();
+}
+function closeModal() { $('overlay').classList.remove('open'); }
+$('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeModal(); });
+</script>
+</body>
+</html>
